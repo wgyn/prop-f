@@ -1,11 +1,14 @@
-module Formulas
+module Formula
   class AbstractFormula
     def self.symbol
       raise NotImplementedError
     end
+
+    def atomic?; false; end
   end
 
   class BinaryInfixFormula < AbstractFormula
+    attr_accessor :arg1, :arg2
     def initialize(arg1, arg2); @arg1, @arg2 = [arg1, arg2]; end
     def to_s; "#{@arg1} #{symbol} #{@arg2}"; end
     def self.parse(string)
@@ -14,19 +17,20 @@ module Formulas
     end
   end
 
-  class Conjunction < BinaryInfixFormula
+  class And < BinaryInfixFormula
     def self.symbol; '&&'; end
   end
 
-  class Disjunction < BinaryInfixFormula
+  class Or < BinaryInfixFormula
     def self.symbol; '||'; end
   end
 
-  class Implication < BinaryInfixFormula
+  class Implies < BinaryInfixFormula
     def self.symbol; '->'; end
   end
 
-  class Negation < AbstractFormula
+  class Not < AbstractFormula
+    attr_accessor :arg
     def initialize(arg); @arg = arg; end
     def to_s; "#{symbol}#{arg}"; end
     def self.symbol; '!'; end
@@ -35,14 +39,15 @@ module Formulas
       self.new(arg)
     end
   end
-end
 
-class Prover
-  def initialize
-    puts 'Hello, world!'
+  class Atom < AbstractFormula
+    attr_accessor :arg
+    def initialize(arg); @arg = arg; end
+    def atomic?; true; end
   end
 
-  def test_validity(formula)
-    true
-  end
+  def self.and(p, q); And.new(p, q); end
+  def self.or(p, q); Or.new(p, q); end
+  def self.implies(p, q); Implies.new(p, q); end
+  def self.not(p); Not.new(p); end
 end
