@@ -18,22 +18,22 @@ module Formula
   end
 
   class And < BinaryInfixFormula
-    def self.symbol; '&&'; end
+    def symbol; '&&'; end
   end
 
   class Or < BinaryInfixFormula
-    def self.symbol; '||'; end
+    def symbol; '||'; end
   end
 
   class Implies < BinaryInfixFormula
-    def self.symbol; '->'; end
+    def symbol; '->'; end
   end
 
   class Not < AbstractFormula
     attr_accessor :arg
     def initialize(arg); @arg = arg; end
     def to_s; "#{symbol}#{arg}"; end
-    def self.symbol; '!'; end
+    def symbol; '!'; end
     def self.parse(string)
       arg = string.match(/^#{symbol}([a-z]+)/)[1]
       self.new(arg)
@@ -44,6 +44,7 @@ module Formula
     attr_accessor :arg
     def initialize(arg); @arg = arg; end
     def atomic?; true; end
+    def to_s; @arg; end
   end
 
   def self.and(p, q); And.new(p, q); end
