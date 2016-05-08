@@ -3,7 +3,8 @@ require_relative 'formula'
 
 class Tableau
   class SignedFormula
-    attr_accessor :expanded, :formula, :sign
+    attr_accessor :expanded
+    attr_reader :formula, :index, :sign
 
     EXPANSION_TYPES = {
       [Formula::Not, true] => :unary,
@@ -19,6 +20,7 @@ class Tableau
     def initialize(formula, sign, index)
       @formula = formula
       @sign = sign
+      # TODO: Incrementing of indices should be handled by Tableau
       @index = index
       @expanded = false
     end
@@ -70,10 +72,9 @@ class Tableau
   class Node < Tree::TreeNode
     attr_reader :entries
 
-    def initialize(formula, index=1)
-      @current_index = index
-      @entries = [SignedFormula.new(formula, false, @current_index)]
-      super("#{index}: #{formula}")
+    def initialize(signed_formula)
+      @entries = [signed_formula]
+      super("#{signed_formula.index}: #{signed_formula.formula}")
     end
 
     # Disjunctive rules cause the node to split, while non-disjunctive
@@ -86,8 +87,12 @@ class Tableau
         case expansion_type
         when :unary, :conjunctive
           @entries += expanded_formulas
-        else
-          raise "Don't know how to expand #{expansion_type}"
+        when :disjunctive
+          expanded_formulas.each do |signed_formula|
+            self << Node.new(signed_formula)
+            # This is a recursive call!
+            self.children.each {|node| node.expand!}
+          end
         end
       end
     end
@@ -95,5 +100,13 @@ class Tableau
     def next_entry_to_expand
       @entries.find(&:should_expand?)
     end
+  end
+
+  # Create a fully expanded Tableau proof from a formula
+  def self.generate(formula)
+    signed_formula = SignedFormula.new(formula, false, 1)
+    tableau = Node.new(signed_formula)
+    tableau.expand!
+    tableau
   end
 end
