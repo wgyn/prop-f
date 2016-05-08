@@ -109,4 +109,12 @@ class Tableau
     tableau.expand!
     tableau
   end
+
+  def self.is_valid?(formula)
+    tableau = self.generate(formula)
+    raise NotImplementedError
+    # TODO: A tableau is valid if every branch is closed. A branch is
+    #       closed if it contains contradictory atomic entries i.e. F(p)
+    #       and T(p) for some proposition p.
+  end
 end
