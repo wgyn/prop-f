@@ -79,7 +79,7 @@ class Tableau
 
     # Disjunctive rules cause the node to split, while non-disjunctive
     # rules simply add to the entries of the current node.
-    def expand!
+    def expand_once!
       while entry = (next_entry_to_expand)
         expansion_type, expanded_formulas = entry.expansion
         entry.expanded = true
@@ -90,11 +90,14 @@ class Tableau
         when :disjunctive
           expanded_formulas.each do |signed_formula|
             self << Node.new(signed_formula)
-            # This is a recursive call!
-            self.children.each {|node| node.expand!}
           end
         end
       end
+    end
+
+    def expand_fully!
+      expand_once!
+      self.children.each {|node| node.expand_fully!}
     end
 
     def next_entry_to_expand
@@ -106,7 +109,7 @@ class Tableau
   def self.generate(formula)
     signed_formula = SignedFormula.new(formula, false, 1)
     tableau = Node.new(signed_formula)
-    tableau.expand!
+    tableau.expand_fully!
     tableau
   end
 
