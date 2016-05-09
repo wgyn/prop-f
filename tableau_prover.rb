@@ -1,9 +1,9 @@
 require 'rubytree'
+require 'set'
 require_relative 'formula'
 
 class Tableau
   class SignedFormula
-    attr_accessor :expanded
     attr_reader :formula, :index, :sign
 
     EXPANSION_TYPES = {
@@ -20,13 +20,7 @@ class Tableau
     def initialize(formula, sign, index)
       @formula = formula
       @sign = sign
-      # TODO: Incrementing of indices should be handled by Tableau
       @index = index
-      @expanded = false
-    end
-
-    def should_expand?
-      !@formula.atomic? && !@expanded
     end
 
     # Returns a tuple, where first element is the expansion type and second
@@ -62,34 +56,42 @@ class Tableau
     end
 
     def to_s
-      "#{@index}: #{@sign ? 'T' : 'F'}" \
-        "(#{@formula.to_s})#{@expanded ? ' EXPANDED' : ''}"
+      "#{@index}: #{@sign ? 'T' : 'F'}(#{@formula.to_s})"
     end
   end
 
   # A Node represents a collection of SignedFormulas. When expanding a
   # Node, not all the entries will get expanded at once.
   class Node < Tree::TreeNode
-    attr_reader :entries
+    attr_reader :atomic_expansions, :expanded, :unexpanded
 
-    def initialize(signed_formula)
-      @entries = [signed_formula]
-      super("#{signed_formula.index}: #{signed_formula.formula}")
+    BOOLEAN_VALUES = Set.new([true, false])
+
+    def initialize(signed_formula, atomic_expansions=Hash.new(Set.new))
+      @atomic_expansions = atomic_expansions
+      @expanded = []
+      @unexpanded = [signed_formula]
+      super(signed_formula.to_s)
     end
 
     # Disjunctive rules cause the node to split, while non-disjunctive
     # rules simply add to the entries of the current node.
     def expand_once!
-      while entry = (next_entry_to_expand)
-        expansion_type, expanded_formulas = entry.expansion
-        entry.expanded = true
+      while to_expand = @unexpanded.pop
+        expansion_type, expanded_formulas = to_expand.expansion
+
+        if to_expand.formula.atomic?
+          # TODO: Don't use += here...
+          @atomic_expansions[to_expand.formula.arg] += [to_expand.sign]
+        end
+        @expanded << to_expand
 
         case expansion_type
         when :unary, :conjunctive
-          @entries += expanded_formulas
+          @unexpanded += expanded_formulas.reverse
         when :disjunctive
           expanded_formulas.each do |signed_formula|
-            self << Node.new(signed_formula)
+            self << Node.new(signed_formula, @atomic_expansions.clone)
           end
         end
       end
@@ -100,8 +102,25 @@ class Tableau
       self.children.each {|node| node.expand_fully!}
     end
 
-    def next_entry_to_expand
-      @entries.find(&:should_expand?)
+    # A tableau is valid if every branch is closed.
+    def is_valid?
+      leaf_nodes = self.each_leaf
+      leaf_nodes.map(&:is_closed?).reduce(&:&)
+    end
+
+    # A branch is closed if it contains contradictory atomic formulas
+    # i.e. F(p) and T(p) for some formula p
+    def is_closed?
+      @atomic_expansions.values.include?(BOOLEAN_VALUES)
+    end
+
+    private
+    def track_atomic_entries!
+      atomic_entries = (@expanded + @unexpanded).select {|sf| sf.formula.atomic?}
+      atomic_expansions = Hash[
+        atomic_entries.map {|sf| [sf.formula.arg, sf.sign]}
+      ]
+      @atomic_expansions = @atomic_expansions.merge(atomic_expansions)
     end
   end
 
@@ -115,9 +134,6 @@ class Tableau
 
   def self.is_valid?(formula)
     tableau = self.generate(formula)
-    raise NotImplementedError
-    # TODO: A tableau is valid if every branch is closed. A branch is
-    #       closed if it contains contradictory atomic entries i.e. F(p)
-    #       and T(p) for some proposition p.
+    tableau.is_valid?
   end
 end

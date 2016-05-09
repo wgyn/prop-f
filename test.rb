@@ -3,7 +3,7 @@ require 'minitest/autorun'
 require_relative 'formula'
 require_relative 'tableau_prover'
 
-describe TableauProver do
+describe Tableau do
   before do
     @p = Formula::Atom.new('p')
     @q = Formula::Atom.new('q')
@@ -19,7 +19,7 @@ describe TableauProver do
         [false, Formula.and(@p, Formula.not(@q))],
         [false, Formula.not(Formula.and(@p, @q))],
       ].each do |expected, formula|
-        assert_equal(expected, TableauProver.is_valid?(formula))
+        assert_equal(expected, Tableau.is_valid?(formula))
       end
     end
   end
