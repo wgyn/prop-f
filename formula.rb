@@ -51,4 +51,5 @@ module Formula
   def self.or(p, q); Or.new(p, q); end
   def self.implies(p, q); Implies.new(p, q); end
   def self.not(p); Not.new(p); end
+  def self.atom(p); Atom.new(p); end
 end
