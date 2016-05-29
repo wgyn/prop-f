@@ -32,7 +32,7 @@ module Formula
   class Not < AbstractFormula
     attr_accessor :arg
     def initialize(arg); @arg = arg; end
-    def to_s; "#{symbol}#{arg}"; end
+    def to_s; "#{symbol}(#{arg})"; end
     def symbol; '!'; end
     def self.parse(string)
       arg = string.match(/^#{symbol}([a-z]+)/)[1]
