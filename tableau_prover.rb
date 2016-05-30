@@ -2,8 +2,9 @@ require 'rubytree'
 require 'set'
 require_relative 'formula'
 
-class Tableau
+module Tableau
   class SignedFormula
+    attr_accessor :expanded
     attr_reader :formula, :index, :sign
 
     EXPANSION_TYPES = {
@@ -21,31 +22,32 @@ class Tableau
       @formula = formula
       @sign = sign
       @index = index
+      @expanded = false
     end
 
     # Returns a tuple, where first element is the expansion type and second
-    # element is an array of expanded SignedFormulas.
-    def expansion
+    # element is an array of NodeEntries.
+    def expansion(index)
       expanded_formulas = \
         case @formula
         when Formula::Not
           [
-            SignedFormula.new(@formula.arg, !@sign, @index + 1),
+            SignedFormula.new(@formula.arg, !@sign, index + 1),
           ]
         when Formula::And
           [
-            SignedFormula.new(@formula.arg1, @sign, @index + 1),
-            SignedFormula.new(@formula.arg2, @sign, @index + 2),
+            SignedFormula.new(@formula.arg1, @sign, index + 1),
+            SignedFormula.new(@formula.arg2, @sign, index + 2),
           ]
         when Formula::Or
           [
-            SignedFormula.new(@formula.arg1, @sign, @index + 1),
-            SignedFormula.new(@formula.arg2, @sign, @index + 2),
+            SignedFormula.new(@formula.arg1, @sign, index + 1),
+            SignedFormula.new(@formula.arg2, @sign, index + 2),
           ]
         when Formula::Implies
           [
-            SignedFormula.new(@formula.arg1, !@sign, @index + 1),
-            SignedFormula.new(@formula.arg2, @sign, @index + 2),
+            SignedFormula.new(@formula.arg1, !@sign, index + 1),
+            SignedFormula.new(@formula.arg2, @sign, index + 2),
           ]
         end
       expansion_type = EXPANSION_TYPES[[@formula.class, @sign]]
@@ -55,56 +57,79 @@ class Tableau
       [expansion_type, expanded_formulas]
     end
 
+    def atomic?
+      @formula.atomic?
+    end
+
     def to_s
-      "#{@index}: #{@sign ? 'T' : 'F'}(#{@formula.to_s})"
+      "#{@index}: #{@sign ? 'T' : 'F'}(#{@formula.to_s}) " \
+        "#{@expanded ? 'EXPANDED' : 'UNEXPANDED'}"
     end
   end
 
-  # A Node represents a collection of SignedFormulas. When expanding a
-  # Node, not all the entries will get expanded at once.
   class Node < Tree::TreeNode
     attr_reader :atomic_expansions, :expanded, :unexpanded
 
     BOOLEAN_VALUES = Set.new([true, false])
 
-    def initialize(signed_formula, atomic_expansions=Hash.new(Set.new))
-      @atomic_expansions = atomic_expansions
-      @expanded = []
-      @unexpanded = [signed_formula]
+    def initialize(signed_formula, atomic_expansions=nil)
+      @atomic_expansions = atomic_expansions || Hash.new(Set.new)
+
+      # TODO: Cache expanded and unexpanded on the object
+      # @expanded = []
+      # @unexpanded = []
+      @formulas = []
+
+      @formulas << signed_formula
+      update_atomic_expansions!(signed_formula) if signed_formula.atomic?
+
       super(signed_formula.to_s)
     end
 
     # Disjunctive rules cause the node to split, while non-disjunctive
-    # rules simply add to the entries of the current node.
+    # rules simply add to the formulas of the current node.
     def expand_once!
-      while to_expand = @unexpanded.pop
-        expansion_type, expanded_formulas = to_expand.expansion
-
-        if to_expand.formula.atomic?
-          # TODO: Don't use += here...
-          @atomic_expansions[to_expand.formula.arg] += [to_expand.sign]
-        end
-        @expanded << to_expand
-
-        case expansion_type
-        when :unary, :conjunctive
-          @unexpanded += expanded_formulas.reverse
-        when :disjunctive
-          expanded_formulas.each do |signed_formula|
-            self << Node.new(signed_formula, @atomic_expansions.clone)
-          end
-        end
+      atomic = @formulas.select {|sf| sf.atomic?}
+      atomic.each do |sf|
+        update_atomic_expansions!(sf)
+        sf.expanded = true
       end
+
+      idx = @formulas.find_index {|sf| !sf.atomic? && !sf.expanded}
+      return unless idx
+      to_expand = @formulas[idx]
+      next_index = @formulas.map(&:index).max
+      expansion_type, new_formulas = to_expand.expansion(next_index)
+
+      unless is_leaf?
+        each_leaf do |node|
+          node.update_formulas!(expansion_type, new_formulas)
+        end
+      else
+        update_formulas!(expansion_type, new_formulas)
+      end
+
+      to_expand.expanded = true
     end
 
     def expand_fully!
-      expand_once!
+      while @formulas.find_index {|sf| !sf.expanded}
+        expand_once!
+      end
       self.children.each {|node| node.expand_fully!}
+    end
+
+    # A node fully expanded if it has no unexpanded formulas and is either
+    # a) a root node or b) all of its ancestors are fully expanded.
+    def fully_expanded?
+      @unexpanded.empty? && (
+        self.is_root? || parent.fully_expanded?
+      )
     end
 
     # A tableau is valid if every branch is closed.
     def is_valid?
-      leaf_nodes = self.each_leaf
+      leaf_nodes = each_leaf
       leaf_nodes.map(&:is_closed?).reduce(&:&)
     end
 
@@ -114,26 +139,55 @@ class Tableau
       @atomic_expansions.values.include?(BOOLEAN_VALUES)
     end
 
+    def to_s
+      @formulas.map(&:to_s).join("\n")
+    end
+
+    protected
+    def update_formulas!(expansion_type, new_formulas)
+      case expansion_type
+      when :unary, :conjunctive
+        @formulas += new_formulas
+      when :disjunctive
+        new_formulas.each do |signed_formula|
+          self << Node.new(signed_formula, @atomic_expansions.clone)
+        end
+      end
+    end
+
     private
-    def track_atomic_entries!
-      atomic_entries = (@expanded + @unexpanded).select {|sf| sf.formula.atomic?}
-      atomic_expansions = Hash[
-        atomic_entries.map {|sf| [sf.formula.arg, sf.sign]}
-      ]
-      @atomic_expansions = @atomic_expansions.merge(atomic_expansions)
+    def update_atomic_expansions!(signed_formula)
+      tmp = @atomic_expansions[signed_formula.formula.arg].clone
+      tmp << signed_formula.sign
+      @atomic_expansions = @atomic_expansions.merge(
+        Hash[signed_formula.formula.arg, tmp]
+      )
     end
   end
 
-  # Create a fully expanded Tableau proof from a formula
-  def self.generate(formula)
-    signed_formula = SignedFormula.new(formula, false, 1)
-    tableau = Node.new(signed_formula)
-    tableau.expand_fully!
-    tableau
+  class Generator
+    attr_reader :root
+
+    def initialize(formula)
+      @formula = formula
+      @root = Node.new(SignedFormula.new(formula, false, 1))
+    end
+
+    def generate!
+      @root.expand_fully!
+    end
+
+    def print_tableau
+      @root.print_tree(
+        @root.node_depth, nil,
+        lambda {|node, prefix| puts "#{prefix} #{node}"},
+      )
+    end
   end
 
   def self.is_valid?(formula)
-    tableau = self.generate(formula)
-    tableau.is_valid?
+    generator = Generator.new(formula)
+    generator.generate!
+    generator.root.is_valid?
   end
 end
