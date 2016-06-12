@@ -157,7 +157,7 @@ module Tableau
         @formulas += new_formulas
       when :disjunctive
         new_formulas.each do |signed_formula|
-          self << Node.new(signed_formula, @atomic_expansions.clone)
+          self << Node.new(signed_formula.clone, @atomic_expansions.clone)
         end
       end
     end
