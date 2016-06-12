@@ -131,6 +131,13 @@ module Tableau
       @formulas.map(&:to_s).join("\n")
     end
 
+    def print_tableau
+      root.print_tree(
+        root.node_depth, nil,
+        lambda {|node, prefix| puts "#{prefix} #{node}"},
+      )
+    end
+
     protected
     def update_formulas!(expansion_type, new_formulas)
       case expansion_type
@@ -165,13 +172,6 @@ module Tableau
 
     def generate!
       @root.expand_fully!
-    end
-
-    def print_tableau
-      @root.print_tree(
-        @root.node_depth, nil,
-        lambda {|node, prefix| puts "#{prefix} #{node}"},
-      )
     end
   end
 
