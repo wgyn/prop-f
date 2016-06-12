@@ -25,36 +25,34 @@ module Tableau
       @expanded = false
     end
 
+    def expansion_type
+      EXPANSION_TYPES[[@formula.class, @sign]]
+    end
+
     # Returns a tuple, where first element is the expansion type and second
     # element is an array of NodeEntries.
     def expansion(index)
-      expanded_formulas = \
-        case @formula
-        when Formula::Not
-          [
-            SignedFormula.new(@formula.arg, !@sign, index + 1),
-          ]
-        when Formula::And
-          [
-            SignedFormula.new(@formula.arg1, @sign, index + 1),
-            SignedFormula.new(@formula.arg2, @sign, index + 2),
-          ]
-        when Formula::Or
-          [
-            SignedFormula.new(@formula.arg1, @sign, index + 1),
-            SignedFormula.new(@formula.arg2, @sign, index + 2),
-          ]
-        when Formula::Implies
-          [
-            SignedFormula.new(@formula.arg1, !@sign, index + 1),
-            SignedFormula.new(@formula.arg2, @sign, index + 2),
-          ]
-        end
-      expansion_type = EXPANSION_TYPES[[@formula.class, @sign]]
-
-      return nil unless expanded_formulas && expansion_type
-
-      [expansion_type, expanded_formulas]
+      case @formula
+      when Formula::Not
+        [
+          SignedFormula.new(@formula.arg, !@sign, index + 1),
+        ]
+      when Formula::And
+        [
+          SignedFormula.new(@formula.arg1, @sign, index + 1),
+          SignedFormula.new(@formula.arg2, @sign, index + 2),
+        ]
+      when Formula::Or
+        [
+          SignedFormula.new(@formula.arg1, @sign, index + 1),
+          SignedFormula.new(@formula.arg2, @sign, index + 2),
+        ]
+      when Formula::Implies
+        [
+          SignedFormula.new(@formula.arg1, !@sign, index + 1),
+          SignedFormula.new(@formula.arg2, @sign, index + 2),
+        ]
+      end
     end
 
     def atomic?
@@ -68,45 +66,36 @@ module Tableau
   end
 
   class Node < Tree::TreeNode
-    attr_reader :atomic_expansions, :expanded, :unexpanded
+    attr_reader :atomic_expansions, :formulas
 
     BOOLEAN_VALUES = Set.new([true, false])
 
     def initialize(signed_formula, atomic_expansions=nil)
       @atomic_expansions = atomic_expansions || Hash.new(Set.new)
-
-      # TODO: Cache expanded and unexpanded on the object
-      # @expanded = []
-      # @unexpanded = []
-      @formulas = []
-
-      @formulas << signed_formula
-      update_atomic_expansions!(signed_formula) if signed_formula.atomic?
-
+      @formulas = [signed_formula]
       super(signed_formula.to_s)
     end
 
     # Disjunctive rules cause the node to split, while non-disjunctive
     # rules simply add to the formulas of the current node.
     def expand_once!
-      atomic = @formulas.select {|sf| sf.atomic?}
-      atomic.each do |sf|
-        update_atomic_expansions!(sf)
-        sf.expanded = true
-      end
+      root.each {|node| node.handle_atomic_formulas!}
 
       idx = @formulas.find_index {|sf| !sf.atomic? && !sf.expanded}
       return unless idx
       to_expand = @formulas[idx]
-      next_index = @formulas.map(&:index).max
-      expansion_type, new_formulas = to_expand.expansion(next_index)
+      expansion_type = to_expand.expansion_type
+      new_formulas = to_expand.expansion(root.max_index)
 
-      unless is_leaf?
-        each_leaf do |node|
+      if is_leaf?
+        update_formulas!(expansion_type, new_formulas)
+      else
+        # Important to materialize the leaves here, otherwise we end up in
+        # an infinite recursion when disjunctively expanding the tree
+        current_leaves = each_leaf
+        current_leaves.each do |node|
           node.update_formulas!(expansion_type, new_formulas)
         end
-      else
-        update_formulas!(expansion_type, new_formulas)
       end
 
       to_expand.expanded = true
@@ -134,7 +123,7 @@ module Tableau
     end
 
     # A branch is closed if it contains contradictory atomic formulas
-    # i.e. F(p) and T(p) for some formula p
+    # i.e. F(p) and T(p) are contained in the branch for some atom p
     def is_closed?
       @atomic_expansions.values.include?(BOOLEAN_VALUES)
     end
@@ -143,25 +132,43 @@ module Tableau
       @formulas.map(&:to_s).join("\n")
     end
 
+    def print_tableau
+      root.print_tree(
+        root.node_depth, nil,
+        lambda {|node, prefix| puts "#{prefix} #{node}"},
+      )
+    end
+
     protected
+
+    def max_index
+      if is_leaf?
+        @formulas.map(&:index).max
+      else
+        leaves = each_leaf
+        leaves.map {|n| n.max_index}.max
+      end
+    end
+
     def update_formulas!(expansion_type, new_formulas)
       case expansion_type
       when :unary, :conjunctive
         @formulas += new_formulas
       when :disjunctive
         new_formulas.each do |signed_formula|
-          self << Node.new(signed_formula, @atomic_expansions.clone)
+          self << Node.new(signed_formula.clone, @atomic_expansions.clone)
         end
       end
     end
 
-    private
-    def update_atomic_expansions!(signed_formula)
-      tmp = @atomic_expansions[signed_formula.formula.arg].clone
-      tmp << signed_formula.sign
-      @atomic_expansions = @atomic_expansions.merge(
-        Hash[signed_formula.formula.arg, tmp]
-      )
+    def handle_atomic_formulas!
+      atomic_formulas = @formulas.select {|sf| sf.atomic?}
+      atomic_formulas.each do |sf|
+        tmp = @atomic_expansions[sf.formula.arg].clone
+        tmp << sf.sign
+        @atomic_expansions.merge!(Hash[sf.formula.arg, tmp])
+        sf.expanded = true
+      end
     end
   end
 
@@ -175,13 +182,6 @@ module Tableau
 
     def generate!
       @root.expand_fully!
-    end
-
-    def print_tableau
-      @root.print_tree(
-        @root.node_depth, nil,
-        lambda {|node, prefix| puts "#{prefix} #{node}"},
-      )
     end
   end
 
