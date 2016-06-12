@@ -86,8 +86,7 @@ module Tableau
       idx = @formulas.find_index {|sf| !sf.atomic? && !sf.expanded}
       return unless idx
       to_expand = @formulas[idx]
-      next_index = @formulas.map(&:index).max
-      expansion_type, new_formulas = to_expand.expansion(next_index)
+      expansion_type, new_formulas = to_expand.expansion(root.max_index)
 
       unless is_leaf?
         each_leaf do |node|
@@ -139,6 +138,16 @@ module Tableau
     end
 
     protected
+
+    def max_index
+      if is_leaf?
+        @formulas.map(&:index).max
+      else
+        leaves = each_leaf
+        leaves.map {|n| n.max_index}.max
+      end
+    end
+
     def update_formulas!(expansion_type, new_formulas)
       case expansion_type
       when :unary, :conjunctive
