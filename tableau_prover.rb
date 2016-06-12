@@ -81,11 +81,7 @@ module Tableau
     # Disjunctive rules cause the node to split, while non-disjunctive
     # rules simply add to the formulas of the current node.
     def expand_once!
-      atomic = @formulas.select {|sf| sf.atomic?}
-      atomic.each do |sf|
-        update_atomic_expansions!(sf)
-        sf.expanded = true
-      end
+      handle_atomic_formulas!
 
       idx = @formulas.find_index {|sf| !sf.atomic? && !sf.expanded}
       return unless idx
@@ -126,7 +122,7 @@ module Tableau
     end
 
     # A branch is closed if it contains contradictory atomic formulas
-    # i.e. F(p) and T(p) for some formula p
+    # i.e. F(p) and T(p) are contained in the branch for some atom p
     def is_closed?
       @atomic_expansions.values.include?(BOOLEAN_VALUES)
     end
@@ -148,12 +144,14 @@ module Tableau
     end
 
     private
-    def update_atomic_expansions!(signed_formula)
-      tmp = @atomic_expansions[signed_formula.formula.arg].clone
-      tmp << signed_formula.sign
-      @atomic_expansions = @atomic_expansions.merge(
-        Hash[signed_formula.formula.arg, tmp]
-      )
+    def handle_atomic_formulas!
+      atomic_formulas = @formulas.select {|sf| sf.atomic?}
+      atomic_formulas.each do |sf|
+        tmp = @atomic_expansions[sf.formula.arg].clone
+        tmp << sf.sign
+        @atomic_expansions.merge!(Hash[sf.formula.arg, tmp])
+        sf.expanded = true
+      end
     end
   end
 
