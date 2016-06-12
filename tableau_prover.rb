@@ -68,21 +68,13 @@ module Tableau
   end
 
   class Node < Tree::TreeNode
-    attr_reader :atomic_expansions, :expanded, :unexpanded
+    attr_reader :atomic_expansions, :formulas
 
     BOOLEAN_VALUES = Set.new([true, false])
 
     def initialize(signed_formula, atomic_expansions=nil)
       @atomic_expansions = atomic_expansions || Hash.new(Set.new)
-
-      # TODO: Cache expanded and unexpanded on the object
-      # @expanded = []
-      # @unexpanded = []
-      @formulas = []
-
-      @formulas << signed_formula
-      update_atomic_expansions!(signed_formula) if signed_formula.atomic?
-
+      @formulas = [signed_formula]
       super(signed_formula.to_s)
     end
 
