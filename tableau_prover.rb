@@ -29,8 +29,6 @@ module Tableau
       EXPANSION_TYPES[[@formula.class, @sign]]
     end
 
-    # Returns a tuple, where first element is the expansion type and second
-    # element is an array of NodeEntries.
     def expansion(index)
       case @formula
       when Formula::Not
@@ -108,8 +106,8 @@ module Tableau
       self.children.each {|node| node.expand_fully!}
     end
 
-    # A node fully expanded if it has no unexpanded formulas and is either
-    # a) a root node or b) all of its ancestors are fully expanded.
+    # A node is fully expanded if it has no unexpanded formulas and is
+    # either a) a root node or b) all of its ancestors are fully expanded.
     def fully_expanded?
       @unexpanded.empty? && (
         self.is_root? || parent.fully_expanded?
