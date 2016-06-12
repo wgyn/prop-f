@@ -172,22 +172,14 @@ module Tableau
     end
   end
 
-  class Generator
-    attr_reader :root
-
-    def initialize(formula)
-      @formula = formula
-      @root = Node.new(SignedFormula.new(formula, false, 1))
-    end
-
-    def generate!
-      @root.expand_fully!
-    end
+  def self.generate_tableau(formula)
+    tableau = Node.new(SignedFormula.new(formula, false, 1))
+    tableau.expand_fully!
+    tableau
   end
 
   def self.is_valid?(formula)
-    generator = Generator.new(formula)
-    generator.generate!
-    generator.root.is_valid?
+    tableau = self.generate_tableau(formula)
+    tableau.is_valid?
   end
 end
