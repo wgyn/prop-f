@@ -79,7 +79,7 @@ module Tableau
     # Disjunctive rules cause the node to split, while non-disjunctive
     # rules simply add to the formulas of the current node.
     def expand_once!
-      handle_atomic_formulas!
+      root.each {|node| node.handle_atomic_formulas!}
 
       idx = @formulas.find_index {|sf| !sf.atomic? && !sf.expanded}
       return unless idx
@@ -161,7 +161,6 @@ module Tableau
       end
     end
 
-    private
     def handle_atomic_formulas!
       atomic_formulas = @formulas.select {|sf| sf.atomic?}
       atomic_formulas.each do |sf|
