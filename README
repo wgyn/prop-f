@@ -1,0 +1,10 @@
+About
+-----
+A pure ruby implementation of a tableau solver for propositional logic.
+This is motivated by the treatment in Blackburn and Bos's Representation
+and Inference for Natural Language.
+
+Running tests
+-------------
+To run the full test suite: `bundle exec rake test`
+To run a specific test: `bundle exec rake test TEST=test.rb:<line>`
