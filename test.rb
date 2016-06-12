@@ -27,73 +27,71 @@ describe Tableau do
   end
 
   describe '#is_valid?' do
-    it 'invalidates single-variable formulas' do
-      assert_invalid_formulas([@p, Formula.not(@p)])
+    it 'correctly validates one-variable non-disjunctive formulas' do
+      assert_valid_formulas([
+        Formula.or(@p, Formula.not(@p)),
+        Formula.implies(@p, @p),
+      ])
     end
 
-    describe 'one-variable formulas' do
-      it 'correctly validates non-disjunctive formulas' do
-        assert_valid_formulas([
-          Formula.or(@p, Formula.not(@p)),
-          Formula.implies(@p, @p),
-        ])
-      end
-
-      it 'correctly invalidates non-disjunctive formulas' do
-        assert_invalid_formulas([
-          Formula.and(@p, Formula.not(@p)),
-        ])
-      end
+    it 'correctly invalidates one-variable non-disjunctive formulas' do
+      assert_invalid_formulas([
+        @p,
+        Formula.not(@p),
+        Formula.and(@p, Formula.not(@p)),
+      ])
     end
 
-    describe 'two-variable formulas' do
-      it 'correctly validates non-disjunctive formulas' do
-        assert_valid_formulas([])
-      end
+    it 'correctly validates two-variable non-disjunctive formulas' do
+      assert_valid_formulas([])
+    end
 
-      it 'correctly invalidates non-disjunctive formulas' do
-        assert_invalid_formulas([
-          Formula.and(@p, @q),
-          Formula.or(@p, @q),
+    it 'correctly invalidates two-variable non-disjunctive formulas' do
+      assert_invalid_formulas([
+        Formula.and(@p, @q),
+        Formula.or(@p, @q),
+        Formula.not(@p_and_q),
+      ])
+    end
+
+    it 'correctly validates two-variable disjunctive formulas' do
+      assert_valid_formulas([
+        # !(p && q) => (!p || !q)
+        Formula.implies(
           Formula.not(@p_and_q),
-        ])
-      end
-
-      it 'correctly validates disjunctive formulas' do
-        assert_valid_formulas([
-          # !(p && q) => (!p || !q)
-          Formula.implies(
-            Formula.not(@p_and_q),
-            Formula.or(Formula.not(@p), Formula.not(@q)),
-          ),
-        ])
-      end
-
-      it 'correctly invalidates disjunctive formulas' do
-        assert_invalid_formulas([])
-      end
+          Formula.or(Formula.not(@p), Formula.not(@q)),
+        ),
+      ])
     end
 
-    describe 'three-variable formulas' do
-      it 'correctly validates disjunctive formulas' do
-        assert_valid_formulas([
-          # (p || (q && r)) -> ((p || q) && (p || r))
-          Formula.implies(
-            Formula.or(@p, Formula.and(@q, @r)),
-            Formula.and(@p_or_q, @p_or_r),
-          ),
-        ])
-      end
+    it 'correctly invalidates two-variable disjunctive formulas' do
+      assert_invalid_formulas([
+        # (p => q) => (!p => !q)
+        Formula.implies(
+          Formula.implies(@p, @q),
+          Formula.implies(Formula.not(@p), Formula.not(@q)),
+        ),
+      ])
+    end
 
-      it 'correctly validates disjunctive formulas' do
-        assert_invalid_formulas([
-          # (p || q || r) -> ((p || q) && (p || r))
-          Formula.implies(
-            Formula.or(@p_or_q, @r),
-            Formula.and(@p_or_q, @p_or_r),
-          ),
-        ])
-      end
+    it 'correctly validates three-variable disjunctive formulas' do
+      assert_valid_formulas([
+        # (p || (q && r)) -> ((p || q) && (p || r))
+        Formula.implies(
+          Formula.or(@p, Formula.and(@q, @r)),
+          Formula.and(@p_or_q, @p_or_r),
+        ),
+      ])
+    end
+
+    it 'correctly three-variable invalidates disjunctive formulas' do
+      assert_invalid_formulas([
+        # (p || q || r) -> ((p || q) && (p || r))
+        Formula.implies(
+          Formula.or(@p_or_q, @r),
+          Formula.and(@p_or_q, @p_or_r),
+        ),
+      ])
     end
   end
 end
