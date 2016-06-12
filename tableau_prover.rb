@@ -25,36 +25,34 @@ module Tableau
       @expanded = false
     end
 
+    def expansion_type
+      EXPANSION_TYPES[[@formula.class, @sign]]
+    end
+
     # Returns a tuple, where first element is the expansion type and second
     # element is an array of NodeEntries.
     def expansion(index)
-      expanded_formulas = \
-        case @formula
-        when Formula::Not
-          [
-            SignedFormula.new(@formula.arg, !@sign, index + 1),
-          ]
-        when Formula::And
-          [
-            SignedFormula.new(@formula.arg1, @sign, index + 1),
-            SignedFormula.new(@formula.arg2, @sign, index + 2),
-          ]
-        when Formula::Or
-          [
-            SignedFormula.new(@formula.arg1, @sign, index + 1),
-            SignedFormula.new(@formula.arg2, @sign, index + 2),
-          ]
-        when Formula::Implies
-          [
-            SignedFormula.new(@formula.arg1, !@sign, index + 1),
-            SignedFormula.new(@formula.arg2, @sign, index + 2),
-          ]
-        end
-      expansion_type = EXPANSION_TYPES[[@formula.class, @sign]]
-
-      return nil unless expanded_formulas && expansion_type
-
-      [expansion_type, expanded_formulas]
+      case @formula
+      when Formula::Not
+        [
+          SignedFormula.new(@formula.arg, !@sign, index + 1),
+        ]
+      when Formula::And
+        [
+          SignedFormula.new(@formula.arg1, @sign, index + 1),
+          SignedFormula.new(@formula.arg2, @sign, index + 2),
+        ]
+      when Formula::Or
+        [
+          SignedFormula.new(@formula.arg1, @sign, index + 1),
+          SignedFormula.new(@formula.arg2, @sign, index + 2),
+        ]
+      when Formula::Implies
+        [
+          SignedFormula.new(@formula.arg1, !@sign, index + 1),
+          SignedFormula.new(@formula.arg2, @sign, index + 2),
+        ]
+      end
     end
 
     def atomic?
@@ -86,7 +84,8 @@ module Tableau
       idx = @formulas.find_index {|sf| !sf.atomic? && !sf.expanded}
       return unless idx
       to_expand = @formulas[idx]
-      expansion_type, new_formulas = to_expand.expansion(root.max_index)
+      expansion_type = to_expand.expansion_type
+      new_formulas = to_expand.expansion(root.max_index)
 
       if is_leaf?
         update_formulas!(expansion_type, new_formulas)
