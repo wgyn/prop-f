@@ -88,12 +88,15 @@ module Tableau
       to_expand = @formulas[idx]
       expansion_type, new_formulas = to_expand.expansion(root.max_index)
 
-      unless is_leaf?
-        each_leaf do |node|
+      if is_leaf?
+        update_formulas!(expansion_type, new_formulas)
+      else
+        # Important to materialize the leaves here, otherwise we end up in
+        # an infinite recursion when disjunctively expanding the tree
+        current_leaves = each_leaf
+        current_leaves.each do |node|
           node.update_formulas!(expansion_type, new_formulas)
         end
-      else
-        update_formulas!(expansion_type, new_formulas)
       end
 
       to_expand.expanded = true
