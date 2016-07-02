@@ -28,16 +28,28 @@ describe Resolution do
         )
       end
 
-      it 'correctly applies #negation_normal_form' do
+      it 'correctly converts a formula to negation normal form' do
         assert_equal(
           @formula_nnf.to_s,
           Resolution::Conversions.negation_normal_form(@formula).to_s,
         )
       end
 
-      it 'correctly applies #negation_normal_form?' do
+      it 'correctly verifies if a formula is in negation normal form' do
         assert(!Resolution::Conversions.negation_normal_form?(@formula))
         assert(Resolution::Conversions.negation_normal_form?(@formula_nnf))
+      end
+
+      it 'correctly converts a formula to conjunctive normal form' do
+        assert_equal(
+          @formula_cnf.to_s,
+          Resolution::Conversions.conjunctive_normal_form(@formula_nnf).to_s,
+        )
+      end
+
+      it 'correctly verifies if a formula is in conjunctive normal form' do
+        assert(!Resolution::Conversions.conjunctive_normal_form?(@formula))
+        assert(Resolution::Conversions.conjunctive_normal_form?(@formula_cnf))
       end
     end
   end
