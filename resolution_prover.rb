@@ -12,11 +12,11 @@ module Resolution
       end
 
       def self.from_formula(formula)
-        return unless \
-          Resolution::Conversions.conjunctive_normal_form?(formula)
+        converted = Resolution::Conversions.conjunctive_normal_form(formula)
+        return unless converted
 
         cnf = self.new
-        current = formula
+        current = converted
 
         loop do
           if Resolution::Conversions::Clause.is_clause?(current)
