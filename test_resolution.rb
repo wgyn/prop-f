@@ -43,7 +43,7 @@ describe Resolution do
       it 'correctly converts a formula to conjunctive normal form' do
         assert_equal(
           @formula_cnf.to_s,
-          Resolution::Conversions.conjunctive_normal_form(@formula_nnf).to_s,
+          Resolution::Conversions.conjunctive_normal_form(@formula).to_s,
         )
       end
 

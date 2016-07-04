@@ -118,6 +118,8 @@ module Resolution
     # A formula is in Conjunctive Normal Form (CNF) if and only if it is
     # a conjunction of clauses. A clause is a disjunction of atoms.
     def self.conjunctive_normal_form(formula)
+      formula = self.negation_normal_form(formula)
+
       while !self.conjunctive_normal_form?(formula)
         formula = self.cnf_simplify(formula)
       end
