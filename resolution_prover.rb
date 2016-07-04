@@ -101,6 +101,7 @@ module Resolution
         # p -> q simplifies to !p || q
         p = formula.arg1
         q = formula.arg2
+        Formula.or(Formula.not(p), q)
       when Formula::And
         Formula.and(
           self.nnf_simplify(formula.arg1),
