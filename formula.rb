@@ -5,16 +5,29 @@ module Formula
     end
 
     def atomic?; false; end
+
+    protected
+
+    def args
+      raise NotImplementedError
+    end
   end
 
   class BinaryInfixFormula < AbstractFormula
+    alias_method :eql?, :==
     attr_accessor :arg1, :arg2
+
     def initialize(arg1, arg2); @arg1, @arg2 = [arg1, arg2]; end
     def to_s; "#{@arg1} #{symbol} #{@arg2}"; end
     def self.parse(string)
       arg1, arg2 = string.gsub(/\s+/, '').split(symbol)
       self.new(arg1, arg2)
     end
+
+    def args; [@arg1, @arg2]; end
+    def hash; args.hash; end
+    def ==(o); self.class == o.class && self.args == o.args; end
+    alias_method :eql?, :==
   end
 
   class And < BinaryInfixFormula
@@ -31,6 +44,7 @@ module Formula
 
   class Not < AbstractFormula
     attr_accessor :arg
+
     def initialize(arg); @arg = arg; end
     def to_s; "#{symbol}(#{arg})"; end
     def symbol; '!'; end
@@ -38,13 +52,25 @@ module Formula
       arg = string.match(/^#{symbol}([a-z]+)/)[1]
       self.new(arg)
     end
+
+    def args; [@arg]; end
+    def hash; args.hash; end
+    def ==(o); self.class == o.class && self.args == o.args; end
+    alias_method :eql?, :==
   end
 
   class Atom < AbstractFormula
     attr_accessor :arg
+
     def initialize(arg); @arg = arg; end
     def atomic?; true; end
     def to_s; @arg; end
+    def ==(other); self.arg == other.arg; end
+
+    def args; [@arg]; end
+    def hash; args.hash; end
+    def ==(o); self.class == o.class && self.args == o.args; end
+    alias_method :eql?, :==
   end
 
   def self.and(p, q); And.new(p, q); end

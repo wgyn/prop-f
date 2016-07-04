@@ -3,6 +3,60 @@ require_relative 'formula'
 module Resolution
   module Conversions
 
+    # TODO: Convert it back to a Formula object
+    class Clause
+      attr_accessor :literals
+
+      def initialize
+        @literals = []
+      end
+
+      def self.from_formula(formula)
+        return unless self.is_clause?(formula)
+
+        clause = self.new
+        current = formula
+
+        loop do
+          if self.is_literal?(current)
+            clause.literals << current
+            break
+          elsif current.is_a?(Formula::Or)
+            clause.literals << current.arg1
+            current = current.arg2
+          else
+            # TODO: Should not need this assertion...
+            raise RuntimeError.new "#{formula} is not a clause!"
+          end
+        end
+
+        clause.literals.uniq!
+        clause
+      end
+
+      # A clause is a disjunction of literals.
+      def self.is_clause?(formula)
+        if self.is_literal?(formula)
+          true
+        elsif formula.is_a?(Formula::Or)
+          self.is_clause?(formula.arg1) && self.is_clause?(formula.arg2)
+        else
+          false
+        end
+      end
+
+      # A literal is an atom or a negated atom.
+      def self.is_literal?(formula)
+        if formula.atomic?
+          true
+        elsif formula.is_a?(Formula::Not)
+          formula.arg.atomic?
+        else
+          false
+        end
+      end
+    end
+
     def self.nnf_simplify(formula)
       return formula if self.negation_normal_form?(formula)
 
@@ -32,7 +86,6 @@ module Resolution
         # p -> q simplifies to !p || q
         p = formula.arg1
         q = formula.arg2
-        Formula.or(Formula.not(p), q)
       when Formula::And
         Formula.and(
           self.nnf_simplify(formula.arg1),
@@ -128,33 +181,11 @@ module Resolution
     end
 
     def self.conjunctive_normal_form?(formula)
-      if self.clause?(formula)
+      if Resolutions::Conversions::Clause.is_clause?(formula)
         true
       elsif formula.is_a?(Formula::And)
         self.conjunctive_normal_form?(formula.arg1) &&
           self.conjunctive_normal_form?(formula.arg2)
-      else
-        false
-      end
-    end
-
-    # A clause is a disjunction of literals.
-    def self.clause?(formula)
-      if self.literal?(formula)
-        true
-      elsif formula.is_a?(Formula::Or)
-        self.clause?(formula.arg1) && self.clause?(formula.arg2)
-      else
-        false
-      end
-    end
-
-    # A literal is an atom or a negated atom.
-    def self.literal?(formula)
-      if formula.atomic?
-        true
-      elsif formula.is_a?(Formula::Not)
-        formula.arg.atomic?
       else
         false
       end
