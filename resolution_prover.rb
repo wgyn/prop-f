@@ -3,6 +3,39 @@ require_relative 'formula'
 module Resolution
   module Conversions
 
+    # TODO: Convert it back to a formula object
+    class SetCNFFormula
+      attr_accessor :clauses
+
+      def initialize
+        @clauses = []
+      end
+
+      def self.from_formula(formula)
+        return unless \
+          Resolution::Conversions.conjunctive_normal_form?(formula)
+
+        cnf = self.new
+        current = formula
+
+        loop do
+          if Resolution::Conversions::Clause.is_clause?(current)
+            cnf.clauses << Resolution::Conversions::Clause.from_formula(current)
+            break
+          elsif current.is_a?(Formula::And)
+            cnf.clauses << Resolution::Conversions::Clause.from_formula(current.arg1)
+            current = current.arg2
+          else
+            # TODO: Should not need this assertion...
+            raise RuntimeError.new "#{formula} is not in CNF!"
+          end
+        end
+
+        cnf.clauses.uniq!
+        cnf
+      end
+    end
+
     # TODO: Convert it back to a Formula object
     class Clause
       attr_accessor :literals
@@ -18,7 +51,7 @@ module Resolution
         current = formula
 
         loop do
-          if self.is_literal?(current)
+          if Resolution::Conversions.is_literal?(current)
             clause.literals << current
             break
           elsif current.is_a?(Formula::Or)
@@ -34,27 +67,9 @@ module Resolution
         clause
       end
 
-      # A clause is a disjunction of literals.
-      def self.is_clause?(formula)
-        if self.is_literal?(formula)
-          true
-        elsif formula.is_a?(Formula::Or)
-          self.is_clause?(formula.arg1) && self.is_clause?(formula.arg2)
-        else
-          false
-        end
-      end
-
-      # A literal is an atom or a negated atom.
-      def self.is_literal?(formula)
-        if formula.atomic?
-          true
-        elsif formula.is_a?(Formula::Not)
-          formula.arg.atomic?
-        else
-          false
-        end
-      end
+      def ==(o); self.class == o.class && @literals == o.literals; end
+      def hash; @literals.hash; end
+      alias_method :eql?, :==
     end
 
     def self.nnf_simplify(formula)
@@ -181,11 +196,33 @@ module Resolution
     end
 
     def self.conjunctive_normal_form?(formula)
-      if Resolutions::Conversions::Clause.is_clause?(formula)
+      if self.is_clause?(formula)
         true
       elsif formula.is_a?(Formula::And)
         self.conjunctive_normal_form?(formula.arg1) &&
           self.conjunctive_normal_form?(formula.arg2)
+      else
+        false
+      end
+    end
+
+    # A clause is a disjunction of literals.
+    def self.is_clause?(formula)
+      if self.is_literal?(formula)
+        true
+      elsif formula.is_a?(Formula::Or)
+        self.is_clause?(formula.arg1) && self.is_clause?(formula.arg2)
+      else
+        false
+      end
+    end
+
+    # A literal is an atom or a negated atom.
+    def self.is_literal?(formula)
+      if formula.atomic?
+        true
+      elsif formula.is_a?(Formula::Not)
+        formula.arg.atomic?
       else
         false
       end
